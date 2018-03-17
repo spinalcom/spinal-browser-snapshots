@@ -1,0 +1,109 @@
+<html>
+  <body>
+    <h1>Spinal System : Docker image spinalcom/demo_finewine</h1>
+    <a href="#">Restart</a> | <a href="#">Stop</a>
+    <h2>Running containers</h2>
+    <p>
+      <input type="text" name="port" placeholder="port" id="newContainerPort" />
+      <select name="volumes" id="snapshotSelect"></select>
+      <a href="#" onclick="newContainer()">New container</a>
+    </p>
+    <ul id="containerList"></ul>
+    <h2>Volume snapshots</h2>    
+    <ul id="snapshotList"></ul>
+    <script src="../lib/spinalcore.browser.js"></script>
+    <script src="../lib/docker-instance.js"></script>
+    <script>
+      // TODO: load here the list of backup
+      let fs = spinalCore.connect('http://168:JHGgcz45JKilmzknzelf65ddDadggftIO98P@' + window.location.hostname + ':2222');
+
+      const port = '1111';
+
+      const imageDir = 'dockerImages/';
+      const imageName = 'demo_finewine:v0.0.1';
+      var dockerImage = null;
+
+      spinalCore.load(fs, imageDir + imageName,
+        function (_dockerImage) {
+          dockerImage = _dockerImage;
+          listContainers(dockerImage.containers);
+          listVolumes(dockerImage.volumes);
+          //printSnapshots(dockerInstance.current, dockerInstance.backups);
+          //dockerInstance.addBackup();
+        },
+        function () {
+          dockerImage = new DockerImageModel('spinalcom/' + imageName);
+          spinalCore.store(fs, dockerImage, imageDir + imageName, function () {
+            //dockerInstance.addBackup();
+            //printSnapshots(dockerInstance.current, dockerInstance.backups);
+            console.log('Using new model');
+            listContainers(dockerImage.containers);
+            listVolumes(dockerImage.volumes);
+          });
+        }
+      );
+
+      function newContainer() {
+        let volume = document.getElementById('snapshotSelect').value;
+        let port = document.getElementById('newContainerPort').value;
+        if (volume == '0')
+          volume = null;
+        dockerImage.newContainer(port, volume);
+      }
+
+      function removeContainer(i) {
+        dockerImage.removeContainer(i);
+      }
+
+      function listContainers(containers) {
+        let elm = document.getElementById('containerList');
+
+        containers.bind(function () {
+          let cs = containers.get();
+          elm.innerHTML = '';
+
+          for (let i=0; i < containers.length; i++) {
+            let c = containers[i];
+            elm.innerHTML += '<li>' + c.name + ' | <a href="#" onclick="removeContainer(' + i + ')">Remove</a> | <a href="#" onclick="takeSnapshot(' + i + ')">Take data snapshot</a></li>';
+          }
+        })
+      }
+
+      function listVolumes(volumes) {
+        let elm = document.getElementById('snapshotList');
+        let elmV = document.getElementById('snapshotSelect');
+
+        volumes.bind(function () {
+
+          let vs = volumes.get();
+
+          elm.innerHTML = '';
+          elmV.innerHTML = '<option value="0">New volume</option>';
+
+          for (let i=0; i < vs.length; i++) {
+            let v = vs[i];
+            elm.innerHTML += '<li>' + new Date(v.date) + ': ' + v.container + ' <a href="#" onclick="removeVolume(' + i + ')">Remove</a></li>';
+            elmV.innerHTML += '<option value="' + v.name + '">' + new Date(v.date) + ': ' + v.name + '</option>';
+          }
+
+        });
+
+      }
+
+      function removeVolume(i) {
+        if (dockerImage != null)
+          dockerImage.removeVolume(i);
+      }
+
+      function restoreBackup(backupName) {
+        if (dockerInstance != null)
+          dockerInstance.restoreBackup(backupName);
+      }
+
+      function takeSnapshot (i) {
+        if (dockerImage != null)
+          dockerImage.addVolume(i);
+      }
+    </script>
+  </body>
+</html>
